@@ -1,0 +1,70 @@
+{
+  "name": "tuji-mac",
+  "version": "1.0.0",
+  "description": "图记 · 图片备注板 Mac 版",
+  "main": "src/main.js",
+  "author": "TuJi",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "start:debug": "electron . --dev",
+    "dist:mac": "electron-builder --mac --arm64 --publish never",
+    "dist:mac:universal": "electron-builder --mac --universal --publish never",
+    "dist:dir": "electron-builder --dir --publish never",
+    "icon": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-icons.ps1"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.tuji.picnote",
+    "productName": "图记",
+    "copyright": "Copyright © 2026 TuJi",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "asar": true,
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "dmg": {
+      "title": "图记 ${version}",
+      "backgroundColor": "#f7f5f0",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 150,
+          "y": 190,
+          "type": "file"
+        },
+        {
+          "x": 390,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}
