@@ -778,8 +778,8 @@
 
   <div class="subbar">
     <div class="nav-history" role="group" aria-label="浏览历史">
-      <button type="button" class="nav-btn" id="nav-back" title="后退" aria-label="后退" disabled>‹</button>
-      <button type="button" class="nav-btn" id="nav-forward" title="前进" aria-label="前进" disabled>›</button>
+      <button type="button" class="nav-btn" id="nav-back" title="后退（鼠标侧键）" aria-label="后退" disabled>‹</button>
+      <button type="button" class="nav-btn" id="nav-forward" title="前进（鼠标侧键）" aria-label="前进" disabled>›</button>
     </div>
     <div class="crumb" id="crumb">
       <div class="crumb-trail" id="crumb-trail"></div>
@@ -2159,6 +2159,33 @@ function goForward() {
   if (state.navIndex >= state.navHistory.length - 1) return;
   state.navIndex++;
   applyLocation(state.navHistory[state.navIndex]);
+}
+
+// 鼠标侧键：后退键（button 3）= 上一级/后退，前进键（button 4）= 前进
+function bindMouseSideNavigation() {
+  let lastNav = { button: 0, at: 0 };
+  const isSideButton = button => button === 3 || button === 4;
+  const navigate = event => {
+    if (!isSideButton(event.button)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    // mouseup 和 auxclick 可能同时触发，同一次按键只处理一次
+    if (lastNav.button === event.button && now - lastNav.at < 80) return;
+    lastNav = { button: event.button, at: now };
+    if (event.button === 3) goBack();
+    else goForward();
+  };
+  const block = event => {
+    if (!isSideButton(event.button)) return;
+    // 阻止 WebView2 / Electron 把侧键当成浏览器历史后退或前进
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  document.addEventListener('mousedown', block, true);
+  document.addEventListener('mouseup', navigate, true);
+  document.addEventListener('auxclick', navigate, true);
+  document.addEventListener('contextmenu', block, true);
 }
 
 function switchFolder(id) {
@@ -5229,6 +5256,7 @@ function bindEvents() {
   // 文件夹浏览 / 前进后退 / 收藏
   $('#nav-back').addEventListener('click', goBack);
   $('#nav-forward').addEventListener('click', goForward);
+  bindMouseSideNavigation();
   $('#crumb-star').addEventListener('click', () => {
     if (!state.atRoot) toggleFolderFavorite(folderById(state.folder));
   });
