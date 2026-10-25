@@ -4642,16 +4642,96 @@ async function writeBackupLine(writable, record) {
   await writable.write(BACKUP_LINE_ENCODER.encode(JSON.stringify(record) + '\n'));
 }
 
+async function exportBackupBlobFallback() {
+  // OPFS 不可用或配额不足时的退路：逐张生成 Blob 分块，避免单个巨大字符串
+  const parts = [];
+  let chunk = [];
+  let chunkChars = 0;
+  const flush = () => {
+    if (!chunk.length) return;
+    parts.push(new Blob(chunk, { type: 'application/x-ndjson' }));
+    chunk = [];
+    chunkChars = 0;
+  };
+  const push = record => {
+    const line = JSON.stringify(record) + '\n';
+    chunk.push(line);
+    chunkChars += line.length;
+    if (chunkChars >= 8 * 1024 * 1024) flush();
+  };
+
+  push({
+    type: 'header',
+    app: 'picnote',
+    version: BACKUP_JSONL_VERSION,
+    format: 'jsonl',
+    exportedAt: new Date().toISOString(),
+    counts: {
+      folders: state.folders.length,
+      groups: state.groups.length,
+      items: state.items.length
+    },
+    folders: backupFolderRecords(),
+    groups: backupGroupRecords()
+  });
+  for (let i = 0; i < state.items.length; i++) {
+    const item = state.items[i];
+    $('#busy-text').textContent = '正在导出 ' + (i + 1) + ' / ' + state.items.length + ' 张…';
+    const data = await blobToDataURL(item.blob);
+    push({
+      type: 'item',
+      id: item.id,
+      name: item.name || '',
+      note: item.note || '',
+      created: item.created,
+      pinned: !!item.pinned,
+      done: !!item.done,
+      group: item.group,
+      mime: (item.blob && item.blob.type) || 'image/png',
+      data
+    });
+    if (i % 4 === 0) await sleep(0);
+  }
+  flush();
+  const blob = new Blob(parts, { type: 'application/x-ndjson;charset=utf-8' });
+  download(blob, '图记备份_' + dateStamp() + '.jsonl');
+  toast('已导出 ' + state.items.length + ' 张图片（' + fmtSize(blob.size) + '），文件已开始下载', 'success');
+}
+
 async function exportBackupStream() {
   if (!state.items.length) { toast('还没有图片可以备份', 'error'); return; }
   const totalBytes = backupItemsSize();
   const estimated = Math.ceil(totalBytes * 1.38) + 2 * 1024 * 1024;
   closeBackup();
+
+  if (!navigator.storage || !navigator.storage.getDirectory) {
+    await withBusy('正在导出全部数据…', async () => {
+      try { await exportBackupBlobFallback(); }
+      catch (err) { console.error(err); toast('导出失败：' + err.message, 'error'); }
+    });
+    return;
+  }
+
   await withBusy('正在准备流式备份…', async () => {
     let temp = null;
     try {
-      await ensureBackupSpace(estimated);
-      temp = await createTempBackupFile();
+      try {
+        await ensureBackupSpace(estimated);
+      } catch (spaceErr) {
+        console.warn(spaceErr);
+        // 存储配额不足但磁盘还有空间时，用 Blob 方式导出
+        await exportBackupBlobFallback();
+        return;
+      }
+
+      try {
+        temp = await createTempBackupFile();
+      } catch (opfsErr) {
+        console.warn('OPFS 不可用，改用 Blob 导出', opfsErr);
+        await exportBackupBlobFallback();
+        return;
+      }
+
       await writeBackupLine(temp.writable, {
         type: 'header',
         app: 'picnote',
@@ -5575,6 +5655,7 @@ window.PicNote = {
   handleJsonlBackupFile,
   exportBackup,
   exportBackupStream,
+  exportBackupBlobFallback,
   importBackupJsonlStream,
   textDialog,
   setDone,
