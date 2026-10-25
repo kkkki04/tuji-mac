@@ -1005,27 +1005,28 @@
 <div class="modal-mask" id="backup-modal">
   <div class="modal">
     <h3>数据备份</h3>
-    <p class="sub">把所有文件夹、分组、图片和备注导出成一个文件；导入时会把备份内容追加到现有数据，不会覆盖已有文件夹和图片。</p>
+    <p class="sub">把全部文件夹、分组、图片和备注导出成一个文件。新版使用流式 .jsonl 备份，图片很多也不会白屏；导入时仍会把内容追加到现有数据，不会覆盖已有文件夹和图片。</p>
     <div class="share-actions">
-      <button class="btn primary wide" id="backup-export">⬇ 导出全部数据（.json）</button>
+      <button class="btn primary wide" id="backup-export">⬇ 导出全部数据（.jsonl 推荐）</button>
       <button class="btn wide" id="backup-import">⬆ 导入备份（追加）</button>
+      <button class="btn ghost wide" id="backup-export-legacy">导出旧格式 .json（仅适合小数据）</button>
     </div>
     <div class="share-tip">
       <div><b>怎么换设备</b></div>
       <ol>
-        <li>在这台电脑点「导出全部数据」，会下载一个 <code>图记备份_日期.json</code></li>
-        <li>把文件发到新电脑（微信 / U 盘 / 网盘都行）</li>
-        <li>在新电脑打开图记，点「备份」→「导入备份（追加）」，选这个文件</li>
+        <li>在这台电脑点「导出全部数据（.jsonl 推荐）」，会下载一个 <code>图记备份_日期.jsonl</code></li>
+        <li>文件很大时，先把它压缩成 <code>.zip</code> 再发；微信里请按「文件」发送，不要按图片发送</li>
+        <li>在新电脑打开图记，点「备份」→「导入备份（追加）」，选 <code>.jsonl</code>（压缩过就先解压）</li>
         <li>导入会把备份里的文件夹、分组和图片追加到当前数据中，不会覆盖现有内容；同名文件夹会自动加「导入」后缀</li>
       </ol>
-      <div style="margin-top:6px;color:#8a8578;">备份包含图片原图、名称、备注、完成状态、分组、文件夹层级和收藏；文件可能比较大，属正常现象。</div>
+      <div style="margin-top:6px;color:#8a8578;">备份包含图片原图、名称、备注、完成状态、分组、文件夹层级和收藏。导出或导入过程中请不要关闭图记；图片很多时慢一些属正常现象。</div>
     </div>
     <div class="modal-actions">
       <button class="btn ghost" id="backup-close">关闭</button>
     </div>
   </div>
 </div>
-<input type="file" id="backup-input" accept=".json,application/json" hidden>
+<input type="file" id="backup-input" accept=".json,.jsonl,.jsonlines,.ndjson,application/json,application/x-ndjson" hidden>
 
 <div class="busy" id="busy"><div class="spinner"></div><div id="busy-text">正在处理…</div></div>
 <div class="drop" id="drop">松开鼠标，添加图片<small>支持一次拖入多张</small></div>
@@ -1112,7 +1113,7 @@ function download(blob, filename) {
   document.body.append(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1387,6 +1388,19 @@ async function dbAddAll(items, folders, groups) {
     const meta = tx.objectStore(META);
     meta.put(folders, 'folders');
     meta.put(groups, 'groups');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('追加导入写入被中止'));
+  });
+}
+
+async function dbAddItems(items) {
+  if (!items.length) return;
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    for (const item of items) store.put(item);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error || new Error('追加导入写入被中止'));
@@ -4557,8 +4571,141 @@ async function buildBackupPayload() {
   };
 }
 
+const BACKUP_TEMP_DIR = 'tuji-backup-temp';
+const BACKUP_JSONL_VERSION = 3;
+const LEGACY_JSON_LIMIT = 80 * 1024 * 1024;
+const BACKUP_LINE_ENCODER = new TextEncoder();
+
+function backupItemsSize() {
+  return state.items.reduce((sum, item) => sum + ((item.blob && item.blob.size) || 0), 0);
+}
+
+function backupFolderRecords() {
+  return state.folders.map(f => ({
+    id: f.id,
+    name: f.name,
+    created: f.created,
+    favorite: !!f.favorite,
+    parentId: f.parentId || ''
+  }));
+}
+
+function backupGroupRecords() {
+  return state.groups.map(g => ({ id: g.id, name: g.name, created: g.created, folderId: g.folderId }));
+}
+
+async function ensureBackupSpace(needed) {
+  if (!navigator.storage || !navigator.storage.estimate) return;
+  let est;
+  try { est = await navigator.storage.estimate(); } catch (err) { return; }
+  if (!est || !est.quota) return;
+  const free = est.quota - (est.usage || 0);
+  if (free < needed) {
+    throw new Error('本地可用空间不足：导出约需 ' + fmtSize(needed) +
+      '，当前可用约 ' + fmtSize(Math.max(free, 0)) + '。请先清理磁盘空间再试。');
+  }
+}
+
+async function createTempBackupFile() {
+  if (!navigator.storage || !navigator.storage.getDirectory) {
+    throw new Error('当前环境不支持流式导出，请改用旧格式 .json（仅适合小数据）');
+  }
+  // 清掉上一次导出残留的临时文件，避免占用双倍空间
+  await cleanupTempBackups(0);
+  const root = await navigator.storage.getDirectory();
+  const dir = await root.getDirectoryHandle(BACKUP_TEMP_DIR, { create: true });
+  const fileHandle = await dir.getFileHandle('backup-' + Date.now() + '.jsonl', { create: true });
+  const writable = await fileHandle.createWritable();
+  return { dir, fileHandle, writable, name: fileHandle.name, closed: false };
+}
+
+async function removeTempBackup(temp) {
+  if (!temp || !temp.name) return;
+  try { await temp.dir.removeEntry(temp.name); } catch (err) { /* already gone */ }
+}
+
+async function cleanupTempBackups(maxAgeMs = 60 * 60 * 1000) {
+  try {
+    if (!navigator.storage || !navigator.storage.getDirectory) return;
+    const root = await navigator.storage.getDirectory();
+    const dir = await root.getDirectoryHandle(BACKUP_TEMP_DIR, { create: false });
+    for await (const [name, handle] of dir.entries()) {
+      try {
+        const file = await handle.getFile();
+        if (Date.now() - file.lastModified > maxAgeMs) await dir.removeEntry(name);
+      } catch (err) { /* ignore one entry */ }
+    }
+  } catch (err) { /* no temp dir yet */ }
+}
+
+async function writeBackupLine(writable, record) {
+  await writable.write(BACKUP_LINE_ENCODER.encode(JSON.stringify(record) + '\n'));
+}
+
+async function exportBackupStream() {
+  if (!state.items.length) { toast('还没有图片可以备份', 'error'); return; }
+  const totalBytes = backupItemsSize();
+  const estimated = Math.ceil(totalBytes * 1.38) + 2 * 1024 * 1024;
+  closeBackup();
+  await withBusy('正在准备流式备份…', async () => {
+    let temp = null;
+    try {
+      await ensureBackupSpace(estimated);
+      temp = await createTempBackupFile();
+      await writeBackupLine(temp.writable, {
+        type: 'header',
+        app: 'picnote',
+        version: BACKUP_JSONL_VERSION,
+        format: 'jsonl',
+        exportedAt: new Date().toISOString(),
+        counts: {
+          folders: state.folders.length,
+          groups: state.groups.length,
+          items: state.items.length
+        },
+        folders: backupFolderRecords(),
+        groups: backupGroupRecords()
+      });
+      for (let i = 0; i < state.items.length; i++) {
+        const item = state.items[i];
+        $('#busy-text').textContent = '正在导出 ' + (i + 1) + ' / ' + state.items.length + ' 张…';
+        const data = await blobToDataURL(item.blob);
+        await writeBackupLine(temp.writable, {
+          type: 'item',
+          id: item.id,
+          name: item.name || '',
+          note: item.note || '',
+          created: item.created,
+          pinned: !!item.pinned,
+          done: !!item.done,
+          group: item.group,
+          mime: (item.blob && item.blob.type) || 'image/png',
+          data
+        });
+        if (i % 4 === 0) await sleep(0);
+      }
+      await temp.writable.close();
+      temp.closed = true;
+      const file = await temp.fileHandle.getFile();
+      download(file, '图记备份_' + dateStamp() + '.jsonl');
+      toast('已导出 ' + state.items.length + ' 张图片（' + fmtSize(file.size) + '），文件已开始下载', 'success');
+      setTimeout(() => removeTempBackup(temp), 10 * 60 * 1000);
+    } catch (err) {
+      console.error(err);
+      try { if (temp && !temp.closed && temp.writable) await temp.writable.abort(); } catch (e) { /* ignore */ }
+      await removeTempBackup(temp);
+      toast('导出失败：' + err.message, 'error');
+    }
+  });
+}
+
 async function exportBackup() {
   if (!state.items.length) { toast('还没有图片可以备份', 'error'); return; }
+  const estimated = Math.ceil(backupItemsSize() * 1.38) + 1024 * 1024;
+  if (estimated > LEGACY_JSON_LIMIT) {
+    toast('数据约 ' + fmtSize(estimated) + '，旧版 .json 可能导致白屏。请改用「导出全部数据（.jsonl 推荐）」。', 'error');
+    return;
+  }
   closeBackup();
   await withBusy('正在导出全部数据…', async () => {
     try {
@@ -4573,10 +4720,10 @@ async function exportBackup() {
   });
 }
 
-async function normalizeBackup(data) {
+function normalizeBackupFolders(rawFolders) {
   const folders = [];
   const seenFolders = new Set();
-  for (const raw of (Array.isArray(data.folders) ? data.folders : [])) {
+  for (const raw of (Array.isArray(rawFolders) ? rawFolders : [])) {
     if (!raw || !raw.id) continue;
     const id = String(raw.id);
     if (seenFolders.has(id)) continue;
@@ -4591,11 +4738,14 @@ async function normalizeBackup(data) {
   }
   if (!folders.length) folders.push({ id: DEFAULT_FOLDER_ID, name: '默认文件夹', created: Date.now(), favorite: false, parentId: '' });
   normalizeFolderParents(folders);
+  return folders;
+}
 
+function normalizeBackupGroups(rawGroups, folders) {
   const folderIds = new Set(folders.map(f => f.id));
   const groups = [];
   const seenGroups = new Set();
-  for (const raw of (Array.isArray(data.groups) ? data.groups : [])) {
+  for (const raw of (Array.isArray(rawGroups) ? rawGroups : [])) {
     if (!raw || !raw.id) continue;
     const id = String(raw.id);
     if (seenGroups.has(id)) continue;
@@ -4615,21 +4765,40 @@ async function normalizeBackup(data) {
       groups.push({ id: uid(), name: '默认分组', created: Date.now(), folderId: f.id });
     }
   }
+  return groups;
+}
+
+async function rawItemBlob(raw) {
+  if (!raw) return null;
+  if (typeof Blob !== 'undefined' && raw.blob instanceof Blob) {
+    return raw.blob.size ? raw.blob : null;
+  }
+  if (typeof raw.data === 'string' && raw.data) {
+    return dataUrlToBlob(raw.data, raw.mime || raw.type);
+  }
+  return null;
+}
+
+async function normalizeBackup(data) {
+  if (!data || typeof data !== 'object') throw new Error('备份内容为空或格式不正确');
+  const folders = normalizeBackupFolders(data.folders);
+  const groups = normalizeBackupGroups(data.groups, folders);
 
   const groupIds = new Set(groups.map(g => g.id));
   const items = [];
   const seenItems = new Set();
-  for (let i = 0; i < data.items.length; i++) {
-    const raw = data.items[i];
+  const rawItems = Array.isArray(data.items) ? data.items : [];
+  for (let i = 0; i < rawItems.length; i++) {
+    const raw = rawItems[i];
     if (i % 6 === 0) {
-      $('#busy-text').textContent = '正在读取图片 ' + (i + 1) + ' / ' + data.items.length + '…';
+      $('#busy-text').textContent = '正在读取图片 ' + (i + 1) + ' / ' + rawItems.length + '…';
       await sleep(0);
     }
-    if (!raw || !raw.data) continue;
+    if (!raw) continue;
     const id = raw.id ? String(raw.id) : uid();
     if (seenItems.has(id)) continue;
     seenItems.add(id);
-    const blob = dataUrlToBlob(raw.data, raw.type);
+    const blob = await rawItemBlob(raw);
     if (!blob || !blob.size) throw new Error('有图片数据为空，备份文件可能已损坏');
     items.push({
       id,
@@ -4665,8 +4834,7 @@ function importedFolderName(name, usedNames) {
   return { name: candidate, renamed: true };
 }
 
-async function importBackupAdditive(data) {
-  const normalized = await normalizeBackup(data);
+function planImportedStructure(normalized) {
   const folderIdMap = new Map();
   const groupIdMap = new Map();
   for (const folder of normalized.folders) folderIdMap.set(folder.id, uid());
@@ -4700,26 +4868,13 @@ async function importBackupAdditive(data) {
   const fallbackGroupId = importedGroups[0]
     ? importedGroups[0].id
     : (state.groups[0] ? state.groups[0].id : '');
-  const importedItems = normalized.items.map(raw => ({
-    id: uid(),
-    name: raw.name,
-    note: raw.note,
-    created: raw.created,
-    pinned: !!raw.pinned,
-    done: !!raw.done,
-    group: groupIdMap.get(raw.group) || fallbackGroupId,
-    blob: raw.blob
-  }));
+  return { folderIdMap, groupIdMap, importedFolders, importedGroups, fallbackGroupId, renamed };
+}
 
-  const folders = state.folders.concat(importedFolders);
-  const groups = state.groups.concat(importedGroups);
-  const items = state.items.concat(importedItems);
-
-  await dbAddAll(importedItems, folders, groups);
-
-  state.folders = folders;
-  state.groups = groups;
-  state.items = items;
+function applyImportedState(importedFolders, importedGroups, importedItems) {
+  state.folders = state.folders.concat(importedFolders);
+  state.groups = state.groups.concat(importedGroups);
+  state.items = state.items.concat(importedItems);
   for (const folder of importedFolders) {
     const group = importedGroups.find(g => g.folderId === folder.id);
     if (group) state.groupMap[folder.id] = group.id;
@@ -4732,21 +4887,225 @@ async function importBackupAdditive(data) {
   sortItems();
   persistFolderState();
   render();
-  return { folders: importedFolders, groups: importedGroups, items: importedItems, renamed };
+}
+
+async function importBackupAdditive(data) {
+  const normalized = await normalizeBackup(data);
+  const plan = planImportedStructure(normalized);
+  const importedItems = normalized.items.map(raw => ({
+    id: uid(),
+    name: raw.name,
+    note: raw.note,
+    created: raw.created,
+    pinned: !!raw.pinned,
+    done: !!raw.done,
+    group: plan.groupIdMap.get(raw.group) || plan.fallbackGroupId,
+    blob: raw.blob
+  }));
+
+  await dbAddAll(
+    importedItems,
+    state.folders.concat(plan.importedFolders),
+    state.groups.concat(plan.importedGroups)
+  );
+  applyImportedState(plan.importedFolders, plan.importedGroups, importedItems);
+  return { folders: plan.importedFolders, groups: plan.importedGroups, items: importedItems, renamed: plan.renamed };
+}
+
+/* ---------- 流式备份（.jsonl）：逐行读写，避免大文件白屏 ---------- */
+async function* readTextLines(file) {
+  const reader = file.stream().getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let index;
+      while ((index = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, index).trim();
+        buffer = buffer.slice(index + 1);
+        if (line) yield line;
+      }
+    }
+    buffer += decoder.decode();
+    const tail = buffer.trim();
+    if (tail) yield tail;
+  } finally {
+    try { await reader.cancel(); } catch (err) { /* already closed */ }
+  }
+}
+
+function isJsonlBackupHeader(record) {
+  return !!record &&
+    record.app === 'picnote' &&
+    (record.format === 'jsonl' || record.type === 'header') &&
+    Array.isArray(record.folders) &&
+    Array.isArray(record.groups);
+}
+
+async function readJsonlHeader(file) {
+  for await (const line of readTextLines(file)) {
+    let record;
+    try { record = JSON.parse(line); }
+    catch (err) { throw new Error('备份文件第一行无法解析，可能不是图记的 .jsonl 备份'); }
+    return record;
+  }
+  throw new Error('备份文件是空的');
+}
+
+async function importBackupJsonlStream(file) {
+  const header = await readJsonlHeader(file);
+  if (!isJsonlBackupHeader(header)) throw new Error('这不是图记的流式备份文件');
+
+  const folders = normalizeBackupFolders(header.folders);
+  const groups = normalizeBackupGroups(header.groups, folders);
+  const plan = planImportedStructure({ folders, groups });
+  const importedItems = [];
+  let processed = 0;
+  let skipped = 0;
+  let failure = null;
+
+  // 先写入文件夹和分组，再按批追加图片；中途失败也不会留下没有归属的图片
+  await dbAddAll(
+    [],
+    state.folders.concat(plan.importedFolders),
+    state.groups.concat(plan.importedGroups)
+  );
+
+  try {
+    let batch = [];
+    for await (const line of readTextLines(file)) {
+      let raw;
+      try { raw = JSON.parse(line); }
+      catch (err) { skipped += 1; continue; }
+      if (!raw || raw.type !== 'item') continue;
+
+      processed += 1;
+      if (processed % 4 === 0) {
+        $('#busy-text').textContent = '正在导入 ' + processed + ' 张图片…';
+        await sleep(0);
+      }
+
+      try {
+        const blob = await rawItemBlob(raw);
+        if (!blob) { skipped += 1; continue; }
+        batch.push({
+          id: uid(),
+          name: String(raw.name || '').slice(0, 100),
+          note: String(raw.note || ''),
+          created: Number(raw.created) || Date.now(),
+          pinned: !!raw.pinned,
+          done: !!raw.done,
+          group: plan.groupIdMap.get(raw.group) || plan.fallbackGroupId,
+          blob
+        });
+      } catch (err) {
+        console.error('跳过损坏的图片记录', err);
+        skipped += 1;
+        continue;
+      }
+
+      if (batch.length >= 5) {
+        await dbAddItems(batch);
+        importedItems.push(...batch);
+        batch = [];
+      }
+    }
+    if (batch.length) {
+      await dbAddItems(batch);
+      importedItems.push(...batch);
+    }
+  } catch (err) {
+    failure = err;
+  } finally {
+    applyImportedState(plan.importedFolders, plan.importedGroups, importedItems);
+  }
+
+  if (failure) {
+    throw new Error('导入中途停止，已完成 ' + importedItems.length + ' 张图片；' + failure.message);
+  }
+  return {
+    folders: plan.importedFolders,
+    groups: plan.importedGroups,
+    items: importedItems,
+    renamed: plan.renamed,
+    skipped
+  };
 }
 
 async function restoreBackup(data) {
   return importBackupAdditive(data);
 }
 
+function looksLikeJsonlName(name) {
+  return /\.(jsonl|jsonlines|ndjson)$/i.test(String(name || ''));
+}
+
+async function handleJsonlBackupFile(file) {
+  let header;
+  try { header = await readJsonlHeader(file); }
+  catch (err) { toast('读取备份文件失败：' + err.message, 'error'); return; }
+  if (!isJsonlBackupHeader(header)) {
+    toast('这个文件不是图记的流式备份文件', 'error');
+    return;
+  }
+
+  const folderCount = Array.isArray(header.folders) ? header.folders.length : 0;
+  const groupCount = Array.isArray(header.groups) ? header.groups.length : 0;
+  const itemCount = Number(header.counts && header.counts.items) || 0;
+  const summary = folderCount + ' 个文件夹 · ' + groupCount + ' 个分组 · ' +
+    (itemCount ? itemCount + ' 张图片' : '图片若干');
+  const ok = await confirmDialog({
+    title: '追加导入备份？',
+    message: '备份里有 ' + summary + '。导入后会追加到当前数据中，不会覆盖或删除现有的文件夹、分组和图片；同名文件夹会自动加「导入」后缀。',
+    okText: '追加导入'
+  });
+  if (!ok) return;
+
+  closeBackup();
+  await withBusy('正在追加导入备份…', async () => {
+    try {
+      const n = await importBackupJsonlStream(file);
+      let message = '已追加：' + n.folders.length + ' 个文件夹 / ' + n.groups.length + ' 个分组 / ' + n.items.length + ' 张图片';
+      if (n.renamed) message += '；' + n.renamed + ' 个同名文件夹已加「导入」后缀';
+      if (n.skipped) message += '；跳过 ' + n.skipped + ' 条损坏记录';
+      toast(message, 'success');
+    } catch (err) {
+      console.error(err);
+      toast('导入失败：' + err.message, 'error');
+    }
+  });
+}
+
 async function handleBackupFile(file) {
   if (!file) return;
+  if (looksLikeJsonlName(file.name)) {
+    await handleJsonlBackupFile(file);
+    return;
+  }
+  if (file.size > 120 * 1024 * 1024) {
+    toast('这个文件超过 120 MB，一次性读取可能会白屏。请改用新版的 .jsonl 流式备份。', 'error');
+    return;
+  }
+
   let text;
   try { text = await file.text(); }
   catch (err) { toast('读取备份文件失败：' + err.message, 'error'); return; }
-  let data;
+  let data = null;
   try { data = JSON.parse(text); }
-  catch (err) { toast('这个文件不是有效的图记备份（无法解析 JSON）', 'error'); return; }
+  catch (err) { data = null; }
+
+  if (!data) {
+    // 有些系统会丢掉 .jsonl 后缀，这里再按流式备份识别一次
+    try {
+      const header = await readJsonlHeader(file);
+      if (isJsonlBackupHeader(header)) { await handleJsonlBackupFile(file); return; }
+    } catch (err) { /* not a jsonl backup */ }
+    toast('这个文件不是有效的图记备份（无法解析 JSON）', 'error');
+    return;
+  }
   if (!data || data.app !== 'picnote' || !Array.isArray(data.items)) {
     toast('这个文件不是图记的备份文件', 'error');
     return;
@@ -4950,7 +5309,8 @@ function bindEvents() {
   $('#btn-backup').addEventListener('click', openBackup);
   $('#backup-close').addEventListener('click', closeBackup);
   $('#backup-modal').addEventListener('click', e => { if (e.target === $('#backup-modal')) closeBackup(); });
-  $('#backup-export').addEventListener('click', exportBackup);
+  $('#backup-export').addEventListener('click', exportBackupStream);
+  $('#backup-export-legacy').addEventListener('click', exportBackup);
   $('#backup-import').addEventListener('click', () => $('#backup-input').click());
   $('#backup-input').addEventListener('change', async e => {
     const file = e.target.files && e.target.files[0];
@@ -5179,6 +5539,7 @@ async function init() {
   }
   updateDoneFilterUI();
   render();
+  cleanupTempBackups().catch(() => {});
 }
 
 document.addEventListener('DOMContentLoaded', init);
@@ -5211,7 +5572,10 @@ window.PicNote = {
   importBackupAdditive,
   restoreBackup,
   handleBackupFile,
+  handleJsonlBackupFile,
   exportBackup,
+  exportBackupStream,
+  importBackupJsonlStream,
   textDialog,
   setDone,
   setView,
