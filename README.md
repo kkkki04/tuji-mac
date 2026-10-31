@@ -2,6 +2,19 @@
 
 这是「图记 · 图片备注板」的 macOS 包装版。界面和功能和 Windows 版一致，使用 Electron + Chromium 内核，数据保存在 Mac 本地。
 
+## 下载安装包
+
+- macOS 发布页：https://github.com/kkkki04/tuji-mac/releases/tag/v1.0.0
+  - `TuJi-macOS-arm64-v1.0.0.dmg`（119,944,498 字节）
+  - `TuJi-macOS-arm64-v1.0.0.zip`（119,782,448 字节）
+  - SHA-256 见 `SHA256SUMS-macos.txt`
+- Windows 安装包在另一个仓库：https://github.com/kkkki04/tuji-windows/releases/tag/v1.0.0
+  - `TuJi-Windows-x64-v1.0.0.exe`
+
+> 两个仓库都是私有的，需要登录 GitHub 账号 **kkkki04** 才能下载。
+> 如果打开仓库首页看不到安装包，请点右侧的 **Releases**，或直接用上面的发布页链接。
+
+
 ## 界面风格（2026-10-28 更新）
 
 - 整体改为**无描边**风格：米白背景、白色圆角卡片、柔和阴影、橄榄绿主色、衬线标题、胶囊控件。
