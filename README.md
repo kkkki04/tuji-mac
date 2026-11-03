@@ -6,18 +6,15 @@
 
 ## 下载安装包
 
-> 序集版已于 2026-11-03 在 GitHub Actions（macos-latest / arm64）重新构建。
-> 本地安装包在 `E:\OP\序集Mac`；GitHub Release 尚未替换，当前 Release 仍是上一版图记包。
+> 序集版已于 2026-11-03 在 GitHub Actions（macos-latest / arm64）构建并发布。
 
-- 序集 macOS 安装包（本地）：
-  - `序集-1.0.0-arm64.dmg`（121,461,328 字节）
+- macOS 发布页：https://github.com/kkkki04/tuji-mac/releases/tag/v1.0.0
+  - `XUJI-macOS-arm64-v1.0.0.dmg`（121,461,328 字节）
     SHA-256 `25CA4C4F77F20D8CF28E0E16BEF0B348412546EDB62F37996BF4A83685A92FD6`
-  - `序集-1.0.0-arm64.zip`（120,563,231 字节）
+  - `XUJI-macOS-arm64-v1.0.0.zip`（120,563,231 字节）
     SHA-256 `4705C1918E14B72E3BAD1A0C1E4F8A87D94EE3822D62F24EAE6FBB5294445C0F`
-- Windows 序集版（本地）：`E:\OP\序集.exe`
+- Windows 安装包也放在同一页面：`XUJI-Windows-x64-v1.0.0.exe`
   SHA-256 `8B91A790A5C1E65ECE221C6FE817D0EA3CB7358D54491F5B7AA65BCB6C570259`
-- 旧的发布页：https://github.com/kkkki04/tuji-mac/releases/tag/v1.0.0
-  - `TuJi-macOS-arm64-v1.0.0.dmg` / `.zip`（上一版图记，保留）
 - Windows 仓库：https://github.com/kkkki04/tuji-windows/releases/tag/v1.0.0
 
 > 两个仓库都是私有的，需要登录 GitHub 账号 **kkkki04** 才能下载。
