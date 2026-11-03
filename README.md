@@ -1,8 +1,13 @@
-# 图记 · Mac 版（Electron）
+# 序集 XUJI · Mac 版（Electron）
 
-这是「图记 · 图片备注板」的 macOS 包装版。界面和功能和 Windows 版一致，使用 Electron + Chromium 内核，数据保存在 Mac 本地。
+这是「序集 XUJI · 图片与文档整理」的 macOS 包装版。界面和功能和 Windows 版一致，使用 Electron + Chromium 内核，数据保存在 Mac 本地。
+
+> 2026-11 品牌升级：原「图记 / TuJi」更名为「序集 / XUJI」。Mac 数据目录继续使用 `~/Library/Application Support/图记/`，`app://tuji` 协议不变，升级后可直接读取原有数据。
 
 ## 下载安装包
+
+> 本次品牌升级只修改了源码和图标；序集版 Mac 安装包需要重新在 macOS 上打包，尚未发布。下面链接里仍是上一版图记安装包。
+> 重新打包后的文件名会是 `序集-1.0.0-arm64.dmg` / `.zip`，App 名为 `序集.app`。
 
 - macOS 发布页：https://github.com/kkkki04/tuji-mac/releases/tag/v1.0.0
   - `TuJi-macOS-arm64-v1.0.0.dmg`（119,944,498 字节）
@@ -35,7 +40,7 @@
 - 功能不变：撤销仍然是 **⌘Z**、重做 **⇧⌘Z**（Windows 是 Ctrl+Z / Ctrl+Y），没有「撤销」按钮，也不会弹带按钮的提示条。
 
 > 目录：`E:\tjmac`  
-> 应用名：`图记.app`  
+> 应用名：`序集.app`  
 > 数据目录：`~/Library/Application Support/图记/`
 
 ## 快速开始
@@ -56,10 +61,10 @@ npm start
 npm run dist:mac
 ```
 
-不想敲命令也可以：安装 Node.js 后，直接双击项目里的 **`构建图记.command`**。  
+不想敲命令也可以：安装 Node.js 后，直接双击项目里的 **`构建序集.command`**。  
 它会自动执行 `npm install` 和 `npm run dist:mac`，完成后打开 `dist` 文件夹。
 
-> 如果 macOS 提示“无法打开”，右键 `构建图记.command` → **打开**。  
+> 如果 macOS 提示“无法打开”，右键 `构建序集.command` → **打开**。  
 > 这个脚本默认使用国内 Electron 镜像，网络正常时也可以不管。
 
 如果完全不想在 Mac 上装 Node，也可以看下面的 **GitHub 自动打包**。
@@ -120,7 +125,7 @@ npm run dist:mac
 - 从 Finder 或微信直接把图片拖进窗口，不需要先复制粘贴。
 - 支持一次拖入多张图片，也支持直接拖入整个文件夹（会递归读取里面的图片）。
 - 在根目录可以把图片拖到某个文件夹卡片上；拖到空白处会放到上次使用的文件夹。
-- 图片是**复制**进图记的，原文件不会被移动。
+- 图片是**复制**进序集的，原文件不会被移动。
 - 空 MIME / 临时文件（微信常见）会根据文件头自动识别为图片。
 
 ---
@@ -162,13 +167,13 @@ npm install
 npm run dist:mac
 ```
 
-或者直接双击 `构建图记.command`，效果一样。
+或者直接双击 `构建序集.command`，效果一样。
 
 产物在 `dist/`：
 
-- `图记-1.0.0-arm64.dmg`
-- `图记-1.0.0-arm64.zip`
-- `dist/mac-arm64/图记.app`
+- `序集-1.0.0-arm64.dmg`
+- `序集-1.0.0-arm64.zip`
+- `dist/mac-arm64/序集.app`
 
 `npm run dist:mac` 只打 Apple Silicon（arm64），适合 M5 MacBook Air。
 
@@ -182,11 +187,11 @@ npm run dist:mac:universal
 
 如果 macOS 提示“无法打开，因为无法验证开发者”：
 
-1. 在 Finder 里右键 `图记.app` → **打开**；
+1. 在 Finder 里右键 `序集.app` → **打开**；
 2. 或执行：
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/图记.app"
+xattr -dr com.apple.quarantine "/Applications/序集.app"
 ```
 
 ---
@@ -205,10 +210,10 @@ xattr -dr com.apple.quarantine "/Applications/图记.app"
    - 如果上传到了 `main` 或 `master` 分支，推送后也会自动运行。
 5. 等 3～8 分钟。构建完成后，在运行记录页面底部下载 **tuji-mac-arm64**。
 6. 解压下载的 artifact，得到：
-   - `图记-1.0.0-arm64.dmg`
-   - `图记-1.0.0-arm64.zip`
+   - `序集-1.0.0-arm64.dmg`
+   - `序集-1.0.0-arm64.zip`
    - `SHA256SUMS.txt`
-7. 双击 DMG，把 `图记.app` 拖到“应用程序”。
+7. 双击 DMG，把 `序集.app` 拖到“应用程序”。
 
 > 这是未签名版本，第一次打开仍需右键 → 打开。  
 > 想要双击无警告，需要 Apple Developer 账号做签名和公证。
@@ -241,14 +246,14 @@ Mac 版不能直接读取 Windows 的 `E:\OP\图记数据`，需要走备份文�
 
 ### Windows 上
 
-1. 打开 Windows 版图记。
+1. 打开 Windows 版序集。
 2. 点 **备份 → 导出全部数据（.jsonl 推荐）**。
-3. 得到 `图记备份_日期.jsonl`（数据很大时先压缩成 `.zip` 再发）。
+3. 得到 `序集备份_日期.jsonl`（数据很大时先压缩成 `.zip` 再发）。
 4. 把这个文件发到 Mac。微信里请按「文件」发送，不要按图片发送。
 
 ### Mac 上
 
-1. 打开 `图记.app`。
+1. 打开 `序集.app`。
 2. 点 **备份 → 导入备份（追加）**。
 3. 选择从 Windows 发来的 `.jsonl`（压缩过就先解压；旧版 `.json` 也支持）。
 
@@ -263,7 +268,7 @@ Mac 版不能直接读取 Windows 的 `E:\OP\图记数据`，需要走备份文�
 默认文件夹（导入 2）
 ```
 
-如果 Mac 是全新安装，导入后可能会多出一个空的“默认文件夹”，可以手动删掉。导出或导入过程中请不要关闭图记。
+如果 Mac 是全新安装，导入后可能会多出一个空的“默认文件夹”，可以手动删掉。导出或导入过程中请不要关闭序集。
 
 ---
 
@@ -284,14 +289,14 @@ Mac 版不能直接读取 Windows 的 `E:\OP\图记数据`，需要走备份文�
 ```text
 tjmac/
 ├─ package.json              # Electron / electron-builder 配置
-├─ 构建图记.command           # Mac 上双击构建
+├─ 构建序集.command           # Mac 上双击构建
 ├─ .github/workflows/        # GitHub Actions 自动打包
 │  └─ build-mac.yml
 ├─ .gitattributes            # 保证 .command 使用 LF 换行
 ├─ src/
 │  └─ main.js                # 主进程：窗口、菜单、协议、下载
 ├─ renderer/
-│  └─ index.html             # 图记网页版（从 Windows 版复制）
+│  └─ index.html             # 序集网页版（从 Windows 版复制）
 ├─ build/
 │  ├─ icon.icns              # Mac 图标
 │  ├─ icon.ico               # Windows 测试用图标
@@ -302,7 +307,7 @@ tjmac/
 └─ dist/                     # 打包输出，git 忽略
 ```
 
-### 更新图记界面
+### 更新序集界面
 
 Windows 版更新后，把新的 `index.html` 覆盖到：
 
@@ -326,7 +331,7 @@ app://tuji/index.html
 
 ## 7. 已知差异
 
-- **分享按钮**：依赖 `navigator.share`。如果 Electron 当前平台不支持，图记会自动隐藏分享按钮；其他功能不受影响。
+- **分享按钮**：依赖 `navigator.share`。如果 Electron 当前平台不支持，序集会自动隐藏分享按钮；其他功能不受影响。
 - **代码签名**：默认不签名。自己用右键打开即可。
 - **包体积**：Electron 包约 100～200MB，这是换取 Chromium 兼容性的代价。
 - **自动同步**：不支持，仍然需要导出/导入 JSON。
@@ -344,12 +349,12 @@ workflow 文件不在默认分支时，Actions 页面不会显示这个工作流
 
 先看运行日志。常见原因是 `package-lock.json` 和 `package.json` 不同步：在项目目录执行一次 `npm install`，把更新后的 `package-lock.json` 一起提交。
 
-### 双击 `构建图记.command` 没反应
+### 双击 `构建序集.command` 没反应
 
 可能是解压工具丢了执行权限。打开终端，进入项目目录执行一次：
 
 ```bash
-chmod +x 构建图记.command
+chmod +x 构建序集.command
 ```
 
 ### `npm start` 提示 Electron failed to install correctly
@@ -377,7 +382,7 @@ npm run start:debug
 
 ### 粘贴图片没反应
 
-确认当前是图记窗口，并且系统没有限制剪贴板权限。应用已允许 `clipboard-read` / `clipboard-sanitized-write`。
+确认当前是序集窗口，并且系统没有限制剪贴板权限。应用已允许 `clipboard-read` / `clipboard-sanitized-write`。
 
 ### 数据会跟着 `.app` 一起被删吗？
 

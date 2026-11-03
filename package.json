@@ -1,9 +1,9 @@
 {
-  "name": "tuji-mac",
+  "name": "xuji-mac",
   "version": "1.0.0",
-  "description": "图记 · 图片备注板 Mac 版",
+  "description": "序集 XUJI · 图片与文档整理 Mac 版",
   "main": "src/main.js",
-  "author": "TuJi",
+  "author": "XUJI",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
@@ -19,9 +19,9 @@
     "electron-builder": "26.15.3"
   },
   "build": {
-    "appId": "com.tuji.picnote",
-    "productName": "图记",
-    "copyright": "Copyright © 2026 TuJi",
+    "appId": "com.xuji.picnote",
+    "productName": "序集",
+    "copyright": "Copyright © 2026 XUJI",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "asar": true,
     "npmRebuild": false,
@@ -46,7 +46,7 @@
       ]
     },
     "dmg": {
-      "title": "图记 ${version}",
+      "title": "序集 ${version}",
       "backgroundColor": "#f7f5f0",
       "window": {
         "width": 540,

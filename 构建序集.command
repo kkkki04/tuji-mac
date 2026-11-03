@@ -2,7 +2,7 @@
 
 cd "$(dirname "$0")" || exit 1
 
-echo "图记 Mac 版构建工具"
+echo "序集 XUJI Mac 版构建工具"
 echo "===================="
 echo
 
@@ -65,7 +65,7 @@ echo "完成！正在打开 dist 文件夹..."
 open dist
 
 echo
-echo "把 dist 里的 图记.app 拖到「应用程序」即可。"
-echo "第一次打开如果被 macOS 拦截，请右键 图记.app → 打开。"
+echo "把 dist 里的 序集.app 拖到「应用程序」即可。"
+echo "第一次打开如果被 macOS 拦截，请右键 序集.app → 打开。"
 echo
 read -n 1 -s -r -p "按任意键关闭..."

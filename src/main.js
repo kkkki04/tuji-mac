@@ -12,17 +12,19 @@ const {
 const fs = require('node:fs');
 const path = require('node:path');
 
-const APP_NAME = '图记';
+const APP_NAME = '序集';
+// 兼容旧版：数据目录继续使用「图记」，升级后仍能读到原有 IndexedDB / 图片。
+const LEGACY_DATA_NAME = '图记';
 const SCHEME = 'app';
 const HOST = 'tuji';
 const RENDERER_DIR = path.resolve(__dirname, '..', 'renderer');
 const DEV = process.argv.includes('--dev');
 
 // Keep the Chromium profile and IndexedDB in a stable, user-writable place.
-// On macOS this becomes ~/Library/Application Support/图记.
+// 序集沿用 ~/Library/Application Support/图记，改名不迁移、不丢数据。
 app.setName(APP_NAME);
 try {
-  app.setPath('userData', path.join(app.getPath('appData'), APP_NAME));
+  app.setPath('userData', path.join(app.getPath('appData'), LEGACY_DATA_NAME));
 } catch (err) {
   // If appData is not available yet, Electron will use the default path.
   console.error('Failed to set userData path:', err);
@@ -174,7 +176,7 @@ function createWindow() {
 
 function setupDownloads() {
   session.defaultSession.on('will-download', (event, item) => {
-    const filename = item.getFilename() || '图记下载';
+    const filename = item.getFilename() || '序集下载';
     const defaultPath = path.join(app.getPath('downloads'), filename);
     item.setSaveDialogOptions({
       title: '保存文件',
@@ -332,7 +334,8 @@ if (!gotLock) {
     app.setAboutPanelOptions({
       applicationName: APP_NAME,
       applicationVersion: app.getVersion(),
-      copyright: 'Copyright © 2026 TuJi'
+      credits: '让每一份灵感，都有序可循。',
+      copyright: 'Copyright © 2026 XUJI'
     });
 
     if (!app.isPackaged && process.platform === 'darwin' && app.dock) {
@@ -351,7 +354,7 @@ if (!gotLock) {
     });
   }).catch((err) => {
     console.error(err);
-    dialog.showErrorBox('图记启动失败', String(err && err.stack ? err.stack : err));
+    dialog.showErrorBox('序集启动失败', String(err && err.stack ? err.stack : err));
     app.quit();
   });
 }
