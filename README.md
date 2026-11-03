@@ -6,15 +6,19 @@
 
 ## 下载安装包
 
-> 本次品牌升级只修改了源码和图标；序集版 Mac 安装包需要重新在 macOS 上打包，尚未发布。下面链接里仍是上一版图记安装包。
-> 重新打包后的文件名会是 `序集-1.0.0-arm64.dmg` / `.zip`，App 名为 `序集.app`。
+> 序集版已于 2026-11-03 在 GitHub Actions（macos-latest / arm64）重新构建。
+> 本地安装包在 `E:\OP\序集Mac`；GitHub Release 尚未替换，当前 Release 仍是上一版图记包。
 
-- macOS 发布页：https://github.com/kkkki04/tuji-mac/releases/tag/v1.0.0
-  - `TuJi-macOS-arm64-v1.0.0.dmg`（119,944,498 字节）
-  - `TuJi-macOS-arm64-v1.0.0.zip`（119,782,448 字节）
-  - SHA-256 见 `SHA256SUMS-macos.txt`
-- Windows 安装包在另一个仓库：https://github.com/kkkki04/tuji-windows/releases/tag/v1.0.0
-  - `TuJi-Windows-x64-v1.0.0.exe`
+- 序集 macOS 安装包（本地）：
+  - `序集-1.0.0-arm64.dmg`（121,460,945 字节）
+    SHA-256 `0C705D407C8F381527762734DF43C942977A780DB2E36FC03D15E022D168F4D2`
+  - `序集-1.0.0-arm64.zip`（120,562,769 字节）
+    SHA-256 `9FB1A5328912F31E7EBEB4B70438FEFC871E513F8AEE3E4CD8A896E420C658B3`
+- Windows 序集版（本地）：`E:\OP\序集.exe`
+  SHA-256 `BA641EBC527AE174AAA4AB4357B5CCD0BC9FCC676B33CF4B53FC00B0CC46E247`
+- 旧的发布页：https://github.com/kkkki04/tuji-mac/releases/tag/v1.0.0
+  - `TuJi-macOS-arm64-v1.0.0.dmg` / `.zip`（上一版图记，保留）
+- Windows 仓库：https://github.com/kkkki04/tuji-windows/releases/tag/v1.0.0
 
 > 两个仓库都是私有的，需要登录 GitHub 账号 **kkkki04** 才能下载。
 > 如果打开仓库首页看不到安装包，请点右侧的 **Releases**，或直接用上面的发布页链接。
