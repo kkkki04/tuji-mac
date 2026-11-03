@@ -244,7 +244,7 @@ Electron 版的数据目录是：
 
 ## 4. 从 Windows 迁移数据
 
-Mac 版不能直接读取 Windows 的 `E:\OP\图记数据`，需要走备份文件（新版 `.jsonl` 或旧版 `.json`）。
+Mac 版不能直接读取 Windows 的 `图记数据` 目录，需要走备份文件（新版 `.jsonl` 或旧版 `.json`）。
 
 ### Windows 上
 
