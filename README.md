@@ -1,5 +1,9 @@
 # 序集 XUJI · Mac 版（Electron）
 
+> **已整合到统一仓库：https://github.com/kkkki04/xuji**
+> 后续更新、Windows 与 macOS 安装包都在新仓库；本仓库保留为历史镜像。
+
+
 这是「序集 XUJI · 图片与文档整理」的 macOS 包装版。界面和功能和 Windows 版一致，使用 Electron + Chromium 内核，数据保存在 Mac 本地。
 
 > 2026-11 品牌升级：原「图记 / TuJi」更名为「序集 / XUJI」。Mac 数据目录继续使用 `~/Library/Application Support/图记/`，`app://tuji` 协议不变，升级后可直接读取原有数据。
