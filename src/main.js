@@ -6,6 +6,7 @@ const {
   Menu,
   dialog,
   protocol,
+  screen,
   session,
   shell
 } = require('electron');
@@ -29,6 +30,10 @@ try {
   // If appData is not available yet, Electron will use the default path.
   console.error('Failed to set userData path:', err);
 }
+
+const WINDOW_STATE_FILE = path.join(app.getPath('userData'), 'window-state.json');
+const DEFAULT_WINDOW = { width: 1280, height: 840 };
+const MIN_WINDOW = { width: 960, height: 640 };
 
 // A standard, secure custom scheme gives the page a stable origin, which is
 // important for IndexedDB and localStorage across app updates and moves.
@@ -123,16 +128,48 @@ function registerAppProtocol() {
   });
 }
 
+function loadWindowState() {
+  try {
+    const data = JSON.parse(fs.readFileSync(WINDOW_STATE_FILE, 'utf8'));
+    const width = Math.round(Number(data.width));
+    const height = Math.round(Number(data.height));
+    if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+    const work = screen.getPrimaryDisplay().workAreaSize;
+    return {
+      width: Math.min(Math.max(width, MIN_WINDOW.width), Math.max(MIN_WINDOW.width, work.width)),
+      height: Math.min(Math.max(height, MIN_WINDOW.height), Math.max(MIN_WINDOW.height, work.height)),
+      maximized: !!data.maximized
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+function saveWindowState(win) {
+  try {
+    if (!win || win.isDestroyed()) return;
+    const bounds = win.getNormalBounds ? win.getNormalBounds() : win.getBounds();
+    fs.writeFileSync(WINDOW_STATE_FILE, JSON.stringify({
+      width: bounds.width,
+      height: bounds.height,
+      maximized: win.isMaximized()
+    }), 'utf8');
+  } catch (err) {
+    console.error('Failed to save window state:', err);
+  }
+}
+
 function createWindow() {
+  const saved = loadWindowState();
   const devIcon = !app.isPackaged
     ? path.join(__dirname, '..', 'build', 'icon.png')
     : undefined;
 
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 840,
-    minWidth: 960,
-    minHeight: 640,
+    width: saved ? saved.width : DEFAULT_WINDOW.width,
+    height: saved ? saved.height : DEFAULT_WINDOW.height,
+    minWidth: MIN_WINDOW.width,
+    minHeight: MIN_WINDOW.height,
     title: APP_NAME,
     icon: devIcon,
     backgroundColor: '#f7f5f0',
@@ -145,6 +182,20 @@ function createWindow() {
       spellcheck: true,
       webviewTag: false
     }
+  });
+
+  if (saved && saved.maximized) mainWindow.maximize();
+
+  let saveTimer = null;
+  const scheduleSave = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveWindowState(mainWindow), 400);
+  };
+  mainWindow.on('resize', scheduleSave);
+  mainWindow.on('move', scheduleSave);
+  mainWindow.on('close', () => {
+    clearTimeout(saveTimer);
+    saveWindowState(mainWindow);
   });
 
   mainWindow.once('ready-to-show', () => {

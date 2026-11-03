@@ -15,7 +15,7 @@
   - `序集-1.0.0-arm64.zip`（120,562,769 字节）
     SHA-256 `9FB1A5328912F31E7EBEB4B70438FEFC871E513F8AEE3E4CD8A896E420C658B3`
 - Windows 序集版（本地）：`E:\OP\序集.exe`
-  SHA-256 `BA641EBC527AE174AAA4AB4357B5CCD0BC9FCC676B33CF4B53FC00B0CC46E247`
+  SHA-256 `8B91A790A5C1E65ECE221C6FE817D0EA3CB7358D54491F5B7AA65BCB6C570259`
 - 旧的发布页：https://github.com/kkkki04/tuji-mac/releases/tag/v1.0.0
   - `TuJi-macOS-arm64-v1.0.0.dmg` / `.zip`（上一版图记，保留）
 - Windows 仓库：https://github.com/kkkki04/tuji-windows/releases/tag/v1.0.0
@@ -109,6 +109,7 @@ npm run dist:mac
 ## 排序 / 按文件夹导出
 
 - 顶部「排序」支持 **名称 ↑ / 名称 ↓ / 日期 新→旧 / 日期 旧→新**；根目录排序文件夹，文件夹内排序图片，选择会记住。
+- 窗口大小会自动记住（包括最大化状态），下次打开恢复到上次大小。
 - 点顶部「管理」后：
   - 在文件夹内可以点图片选中；
   - 在根目录可以直接点文件夹卡片选中（会包含里面的子文件夹），再点顶部「复制图文 / 保存长图 / 分享网页 / 导出 ZIP」等按钮，只导出选中的文件夹内容；
